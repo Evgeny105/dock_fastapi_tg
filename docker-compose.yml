@@ -1,0 +1,46 @@
+services:
+  api:
+    build: ./web/api
+    container_name: fastapi_container
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URL=mongodb://db:27017
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: mongo
+    container_name: mongo_container
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis
+    container_name: redis_container
+    ports:
+      - "6379:6379"
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_container
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+    depends_on:
+      - api
+
+  bot:
+    build: ./bot
+    container_name: tg_bot_container
+    depends_on:
+      - api
+      - db
+      - redis
+    environment:
+      - TOKEN_API_BOT=${TOKEN_API_BOT}
+      - MONGO_URL=mongodb://db:27017
+      - REDIS_HOST=redis

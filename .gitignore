@@ -1,0 +1,6 @@
+bot/.venv/
+web/api/.venv/
+.env
+_*.py
+__pycache__/*
+*.py[cod]
