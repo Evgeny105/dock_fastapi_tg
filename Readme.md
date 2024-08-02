@@ -28,6 +28,10 @@ Mongo как БД для сообщений.
 ```
 curl -X GET http://localhost/api/v1/messages/
 ```
+или если нужно получить данные с пагинацией, то:
+```
+curl -X GET "http://localhost/api/v1/messages/?page=2&limit=2"
+```
 Также реализована запись сообщения в БД с помощью запроса POST 'api/v1/message/', который также очищает кэш Redis. Проверить работу можно запустив:
 ```
 curl -X POST http://localhost/api/v1/message/ \

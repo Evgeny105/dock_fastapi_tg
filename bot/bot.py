@@ -73,34 +73,57 @@ async def command_add_handler(message: Message, command: CommandObject) -> None:
     # Save message to the MongoDB
     result = await messages_collection.insert_one(message_data)
     if result.inserted_id:
-        await redis_client.delete("messages")
-        # logger.info("Deleted messages from Redis")
+        await redis_client.flushdb()  # clear redis cache
+        logger.info("Deleted messages from Redis")
         await message.answer(f"Message\n{command.args}\nadded to the system")
     else:
         await message.answer("Failed to add the message to the system")
 
 
 @dp.message(Command("list"))
-async def command_list_handler(message: Message) -> None:
+async def command_list_handler(
+    message: Message, command: CommandObject
+) -> None:
     """
     This handler receives messages with `/list` command
     """
+    # Parse command arguments for pagination
+    args = command.args
+    if args:
+        try:
+            parts = args.split()
+            page = int(parts[1])
+            limit = int(parts[3])
+        except (IndexError, ValueError):
+            await message.answer(
+                "Invalid format. Use `/list page {page_number} limit {page_size}`"
+            )
+            return
+    else:
+        # Default values
+        page = 1
+        limit = 10
+
+    start = (page - 1) * limit
+    end = start + limit
+
     # Retrieve messages from Redis
-    cached_messages = await redis_client.get("messages")
+    redis_key = f"messages_page_{page}_limit_{limit}"
+    cached_messages = await redis_client.get(redis_key)
     if cached_messages:
-        messages = json.loads(cached_messages)
-        # logger.info("Retrieved messages from Redis")
+        page_of_messages = json.loads(cached_messages)
+        logger.info(f"Retrieved messages from Redis with key {redis_key}")
     else:
         # Retrieve messages from MongoDB
         # without filter
-        cursor = messages_collection.find()
+        cursor = messages_collection.find().skip(start).limit(limit)
         # filter by user
         # cursor = messages_collection.find({"user_id": message.from_user.id})
         # filter by source
         # cursor = messages_collection.find({"source": "telegram"})
         # cursor = messages_collection.find({"source": "api"})
-        messages = await cursor.to_list(length=100)
-        if not messages:
+        page_of_messages = await cursor.to_list(length=limit)
+        if not page_of_messages:
             await message.answer("No messages found.")
             return
 
@@ -112,15 +135,17 @@ async def command_list_handler(message: Message) -> None:
                 "message": msg["message"],
                 # "timestamp": msg["timestamp"],
             }
-            for msg in messages
+            for msg in page_of_messages
         ]
+        # cache messages in Redis for 10 minutes
+        await redis_client.set(redis_key, json.dumps(messages_list), ex=600)
+        logger.info(
+            f"Retrieved messages from MongoDB and cached with key {redis_key}"
+        )
 
-        await redis_client.set("messages", json.dumps(messages_list))
-        # logger.info("Retrieved messages from MongoDB")
-
-    response = "All messages from the system:\n"
+    response = f"Messages from the system (page {page}, limit {limit}):\n"
     response += "\n".join(
-        f"{msg['source']}: {msg['message']}" for msg in messages
+        f"{msg['source']}: {msg['message']}" for msg in page_of_messages
     )
     await message.answer(response)
 
@@ -134,7 +159,8 @@ async def command_start_handler(message: Message) -> None:
         f"Hello, {hbold(message.from_user.full_name)}!\n"
         + "I'm a bot, use commands:\n"
         + " /add {message} for adding message to the system\n"
-        + " /list for getting all messages"
+        + " /list for getting first 10 messages"
+        + " /list page {page_number} limit {page_size} for getting messages with pagination"
     )
 
 
