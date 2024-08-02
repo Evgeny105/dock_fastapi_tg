@@ -53,3 +53,17 @@ TOKEN_API_BOT=9999999999:AAAAAAAAAAAAA_CCCCCCCCCCCCCCCCCCCCC
 ```
 docker compose up --build
 ```
+
+## Реализовано частично (и не проверено)
+Сделал набросок процесса деплоя с помощью Github Actions. Проверить и доделать, к сожалению, сейчас негде. 
+Но после отправки решения, постараюсь доделать этот бонусный пункт.
+В deploy.yml и в секреты нужно дописать:
+- DOCKER_USERNAME
+- DOCKER_HUB_TOKEN
+- SERVER_HOST
+- SERVER_USER
+- SERVER_SSH_KEY
+- dockerhub-username
+- /path/to/app
+- yourdomain.com (также и в конфиге nginx)
+
